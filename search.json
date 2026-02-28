@@ -1,0 +1,52 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "EDA",
+    "section": "",
+    "text": "Preface\nThis is a Quarto book.\nTo learn more about Quarto books visit https://quarto.org/docs/books.",
+    "crumbs": [
+      "Preface"
+    ]
+  },
+  {
+    "objectID": "chapters/EDA.html",
+    "href": "chapters/EDA.html",
+    "title": "1  EDA Visualización de Datos y Toma de Desiciones",
+    "section": "",
+    "text": "1.0.1 Alvarado Natalia y Mujica Camilo",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>EDA Visualización de Datos y Toma de Desiciones</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/EDA.html#analisis-exploratorio-de-datos",
+    "href": "chapters/EDA.html#analisis-exploratorio-de-datos",
+    "title": "1  EDA Visualización de Datos y Toma de Desiciones",
+    "section": "1.1 ANALISIS EXPLORATORIO DE DATOS",
+    "text": "1.1 ANALISIS EXPLORATORIO DE DATOS\nEn el presente documento se realiza un análisis del conjunto de datos obtenido de la base World Bank, específicamente de la fuente Health Nutrition and Population Statistics, disponible en el siguiente enlace: https://databank.worldbank.org/source/health-nutrition-and-population-statistics\nEste dataset recopila información sobre indicadores de salud, nutrición y población para más de 266 territorios a nivel mundial. Entre estos territorios se incluyen principalmente países, pero también agregaciones regionales que agrupan varios países, así como conjuntos de islas y otras divisiones geográficas.\nCada territorio cuenta con múltiples indicadores asociados. Entre ellos se encuentran, por ejemplo: la tasa de fecundidad adolescente (nacimientos por cada 1.000 mujeres entre 15 y 19 años), la cantidad de adultos (15 años o más) y niños (0 a 14 años) que viven con VIH, la edad al primer matrimonio en mujeres y hombres, entre muchos otros. En total, el dataset contiene 474 indicadores distintos.\nLa estructura del archivo incluye columnas correspondientes al nombre del indicador, código del indicador, nombre del país, código del país y valores anuales comprendidos entre 1960 y 2024. ## CARGA DEL DATASET\n\n#Importamos las librerias\nimport pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns\nimport numpy as np\nfrom scipy.stats import pearsonr\nimport pingouin as pg\n#Cargamos el data set\ndf = pd.read_csv(r\"C:\\py proyectos\\EDA Vizdata\\a6229004-b9bf-4015-9569-b0b826d6db87_Data.csv\")\n# Eliminamos las últimas 5 filas que no necesitamos porque son la fuente y la fecha de actualización\ndf = df.iloc[0:474, 0:69]\nprint(\"Dataset cargado con éxito. Dimensiones:\", df.shape)",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>EDA Visualización de Datos y Toma de Desiciones</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/EDA.html#series.name",
+    "href": "chapters/EDA.html#series.name",
+    "title": "1  EDA Visualización de Datos y Toma de Desiciones",
+    "section": "5.1 Series.name",
+    "text": "5.1 Series.name\n\n# Analicemos cuantos datos tenemos por indicador\ncobertura = df_long.groupby('Series Name').agg(\n    total_registros=('Value', 'size'),\n    años_con_datos=('Value', 'count'),\n    años_sin_datos=('Value', lambda x: x.isnull().sum())\n).reset_index()\n# Calcular el porcentaje de cobertura\ncobertura['porcentaje_cobertura'] = (cobertura['años_con_datos'] / cobertura['total_registros']) * 100\n\n# Definimos una función para categorizar los indicadores según porcentaje de datos\ndef categorizar(porcentaje):\n    if porcentaje &gt;= 80:\n        return \"Alta cobertura (≥80%)\"\n    elif 50 &lt;= porcentaje &lt; 80:\n        return \"Cobertura media (50–79%)\"\n    else:\n        return \"Baja cobertura (&lt;50%)\"\n\ncobertura['categoria'] = cobertura['porcentaje_cobertura'].apply(categorizar)\n\nresumen_categorias = cobertura['categoria'].value_counts().reset_index()\n\nresumen_categorias.columns = ['categoria', 'n']\n\nresumen_categorias['porcentaje'] = (resumen_categorias['n'] / resumen_categorias['n'].sum() * 100).round(1)\n\n#Preparamos la gráfica\norden_categorias = [\"Alta cobertura (≥80%)\", \"Cobertura media (50–79%)\", \"Baja cobertura (&lt;50%)\"]\nresumen_categorias['categoria'] = pd.Categorical(resumen_categorias['categoria'], categories=orden_categorias, ordered=True)\nresumen_categorias = resumen_categorias.sort_values('categoria')\n\nprint(\"Distribución de indicadores por cobertura:\")\nprint(resumen_categorias)\nplt.figure(figsize=(10, 6))\ncolors = [\"#1F4E79\", \"#4A7A9C\", \"#7BA0B9\"]\n\nax = sns.barplot(\n    data=resumen_categorias,\n    x='categoria',\n    y='n',\n    palette=colors,\n    hue='categoria',\n    legend=False\n)\nfor p in ax.patches:\n    ax.annotate(f'{int(p.get_height())}',\n                (p.get_x() + p.get_width() / 2., p.get_height()),\n                ha = 'center', va = 'center',\n                xytext = (0, 9),\n                textcoords = 'offset points',\n                fontweight='bold')\nplt.title('Distribución de Indicadores según su Cobertura de Datos', fontsize=14, fontweight='bold')\nplt.ylabel('Cantidad de Indicadores')\nplt.xlabel('Nivel de Cobertura')\nplt.ylim(0, resumen_categorias['n'].max() * 1.1)\nsns.despine()\nplt.show()\n\nDistribución de indicadores por cobertura:\n                  categoria    n  porcentaje\n1     Alta cobertura (≥80%)  181        38.2\n2  Cobertura media (50–79%)   67        14.1\n0     Baja cobertura (&lt;50%)  226        47.7\n\n\n\n\n\n\n\n\n\nEl análisis de cobertura temporal revela que el 47.7% de los indicadores presenta baja cobertura (&lt;50%), lo que indica una disponibilidad limitada de datos a lo largo del período 1960–2024. Esto sugiere que una proporción considerable de indicadores no cuenta con suficiente respaldo histórico para realizar análisis de tendencia de largo plazo.\nPor otro lado, el 38.2% de los indicadores muestra alta cobertura (≥80%), lo que garantiza una base sólida para estudios longitudinales y análisis comparativos en el tiempo.\nEstos resultados evidencian que, aunque el dataset es amplio en términos de cantidad de indicadores, la calidad y continuidad temporal de la información es heterogénea.Por lo tanto, para los análisis posteriores se priorizarán los indicadores con alta cobertura, con el fin de asegurar mayor consistencia y confiabilidad en los resultados.\n\nindicadores_alta_cobertura = cobertura[cobertura['años_con_datos']&gt;50]\nprint(\"Número de indicadores con alta cobertura:\", len(indicadores_alta_cobertura))\nprint(\"Porcentaje del total:\",round(len(indicadores_alta_cobertura)/len(cobertura)*100,2),\"%\")\n\ndf_long= df_long[df_long['Series Name'].isin(indicadores_alta_cobertura['Series Name'])]\ndf_long.sort_values(by='Year').head()\n\nNúmero de indicadores con alta cobertura: 181\nPorcentaje del total: 38.19 %\n\n\n\n    \n\n\n\n\n\n\nSeries Name\nYear\nValue\n\n\n\n\n12007\nMortality rate, infant, male (per 1,000 live b...\n1960\n103.000000\n\n\n1807\nAge population, age 07, male\n1960\n242063.000000\n\n\n17703\nPopulation ages 15-19, male\n1960\n791451.000000\n\n\n19184\nPopulation ages 35-39, male (% of male populat...\n1960\n4.857912\n\n\n19242\nPopulation ages 40-44, female\n1960\n319196.000000\n\n\n\n\n\n    \n\n  \n    \n\n  \n    \n  \n    \n\n  \n\n    \n  \n\n\n    \n  \n\n\nTras aplicar el criterio de selección, el conjunto de datos se reduce de 474 a 181 indicadores, lo que representa una depuración del 61.8% de los indicadores originales. Este filtrado mejora la calidad del análisis al concentrarse en variables con suficiente continuidad temporal.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>EDA Visualización de Datos y Toma de Desiciones</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/EDA.html#year",
+    "href": "chapters/EDA.html#year",
+    "title": "1  EDA Visualización de Datos y Toma de Desiciones",
+    "section": "6.1 Year",
+    "text": "6.1 Year\n\ndf_long['Year'].describe()\n\n\n\n\n\n\n\n\nYear\n\n\n\n\ncount\n11765.00000\n\n\nmean\n1992.00000\n\n\nstd\n18.76246\n\n\nmin\n1960.00000\n\n\n25%\n1976.00000\n\n\n50%\n1992.00000\n\n\n75%\n2008.00000\n\n\nmax\n2024.00000\n\n\n\n\ndtype: float64\n\n\nLa variable Year presenta un rango entre 1960 y 2024. La coincidencia entre media y mediana (1992) indica una distribución temporal simétrica, sin concentración excesiva en años específicos dentro del período analizado.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>EDA Visualización de Datos y Toma de Desiciones</span>"
+    ]
+  }
+]
